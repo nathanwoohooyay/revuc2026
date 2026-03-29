@@ -48,27 +48,32 @@ ELEVENLABS_VOICE_ID = os.getenv("ELEVENLABS_VOICE_ID", "")
 
 NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 
-def convert_to_wav(input_path: str, output_path: str):
-    ffmpeg_path = r"C:\Users\hernandezv2\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-8.1-full_build\bin\ffmpeg.exe"
-    print("FFMPEG PATH:", ffmpeg_path)
-    print("INPUT PATH:", input_path)
-    print("OUTPUT PATH:", output_path)
+import subprocess
+import shutil as _shutil  # alias to avoid conflict with the shutil already imported
 
-    if not ffmpeg_path:
-        raise RuntimeError("ffmpeg not found in PATH")
+def convert_to_wav(input_path: str, output_path: str) -> str:
+    """
+    Convert any audio file to WAV using ffmpeg.
+    Finds ffmpeg automatically from PATH — no hardcoded path needed.
+    """
+    ffmpeg = _shutil.which("ffmpeg")
+    if ffmpeg is None:
+        raise RuntimeError(
+            "ffmpeg not found. Install it and make sure it's on your PATH.\n"
+            "Windows: winget install Gyan.FFmpeg\n"
+            "Then restart your terminal so PATH updates."
+        )
 
     result = subprocess.run(
-        [ffmpeg_path, "-y", "-i", input_path, output_path],
+        [ffmpeg, "-y", "-i", input_path, output_path],
         capture_output=True,
         text=True
     )
 
-    print("FFMPEG RETURN CODE:", result.returncode)
-    print("FFMPEG STDERR:", result.stderr)
+    if result.returncode != 0:
+        raise RuntimeError(f"ffmpeg conversion failed:\n{result.stderr}")
 
-    if result.returncode != 0 or not os.path.exists(output_path):
-        raise RuntimeError("ffmpeg conversion failed")
-
+    print(f"CONVERTED: {input_path} → {output_path}")
     return output_path
 
 
@@ -455,7 +460,7 @@ Be warm, honest, and sound like a real bandmate — not a robot.
 Start with something positive, then give one concrete improvement tip based on the chord or timing data above.
 Keep it under 50 words."""
 
-    url  = f"https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
+    url  = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
     body = {"contents": [{"parts": [{"text": prompt}]}]}
 
     try:
