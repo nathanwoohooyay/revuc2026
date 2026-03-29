@@ -10,6 +10,7 @@ import shutil
 import numpy as np
 import librosa
 import requests
+import subprocess
 from typing import Dict, Any, Optional, List
 from dotenv import load_dotenv
 
@@ -46,6 +47,29 @@ ELEVENLABS_VOICE_ID = os.getenv("ELEVENLABS_VOICE_ID", "")
 # ─────────────────────────────────────────
 
 NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+
+def convert_to_wav(input_path: str, output_path: str):
+    ffmpeg_path = r"C:\Users\hernandezv2\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-8.1-full_build\bin\ffmpeg.exe"
+    print("FFMPEG PATH:", ffmpeg_path)
+    print("INPUT PATH:", input_path)
+    print("OUTPUT PATH:", output_path)
+
+    if not ffmpeg_path:
+        raise RuntimeError("ffmpeg not found in PATH")
+
+    result = subprocess.run(
+        [ffmpeg_path, "-y", "-i", input_path, output_path],
+        capture_output=True,
+        text=True
+    )
+
+    print("FFMPEG RETURN CODE:", result.returncode)
+    print("FFMPEG STDERR:", result.stderr)
+
+    if result.returncode != 0 or not os.path.exists(output_path):
+        raise RuntimeError("ffmpeg conversion failed")
+
+    return output_path
 
 
 def hz_to_note_name(freq_hz: float) -> Optional[str]:
@@ -706,10 +730,16 @@ async def compare_performance(
     player_file:    UploadFile = File(...),
     tolerance_ms:   int        = Form(200),
 ):
-    ref_path    = os.path.join(TEMP_DIR, f"ref_{reference_file.filename}")
-    player_path = os.path.join(TEMP_DIR, f"player_{player_file.filename}")
+    ref_path = os.path.join(TEMP_DIR, f"ref_{reference_file.filename}")
+    player_path = os.path.join(TEMP_DIR, f"player_{player_file.filename}")    
     with open(ref_path,    "wb") as buf: shutil.copyfileobj(reference_file.file, buf)
     with open(player_path, "wb") as buf: shutil.copyfileobj(player_file.file,    buf)
+
+    # Convert to wav if needed
+    if player_path.lower().endswith(".webm"):
+        wav_path = player_path[:-5] + ".wav"
+        player_path = convert_to_wav(player_path, wav_path)
+        print("FINAL PLAYER PATH:", player_path)
 
     # ── Timing ───────────────────────────────────────────────────────────────
     ref_result   = analyze_reference(ref_path)
